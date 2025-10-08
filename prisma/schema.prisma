@@ -104,7 +104,7 @@ model MemberFeeAssignment {
     assignedAt DateTime @default(now())
     isPaid     Boolean  @default(false)
 
-    @@unique([memberId])
+    @@unique([memberId, feeId])
     @@index([memberId, isPaid])
     @@index([feeId, isPaid])
 }
@@ -167,7 +167,7 @@ model RefreshToken {
 
 model SystemSettings {
     settingsId  Int      @id @default(autoincrement())
-    gcashNumber Int
+    gcashNumber String
     gcashName   String
     orgName     String   @default("Computer Explorer Society")
     orgEmail    String?
