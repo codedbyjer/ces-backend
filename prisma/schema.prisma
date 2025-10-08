@@ -1,0 +1,176 @@
+generator client {
+    provider = "prisma-client-js"
+    output   = "../generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+//officer who managed the system
+model User {
+    userId    Int      @id @default(autoincrement())
+    email     String   @unique
+    password  String
+    firstName String
+    lastName  String
+    role      UserRole
+    isActive  Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    reviewedPayments Payment[]      @relation("PaymentReviewer")
+    createdFees      Fee[]          @relation("FeeCreator")
+    refreshTokens    RefreshToken[]
+
+    @@index([email])
+    @@index([role, isActive])
+}
+
+enum UserRole {
+    ORG_ADMIN
+    FINANCE_OFFICER
+}
+
+//org member
+model Member {
+    memberId  Int     @id @default(autoincrement())
+    studentNo String
+    firstName String
+    lastName  String
+    email     String  @unique
+    password  String
+    mobile    String?
+
+    course    String
+    section   String
+    yearLevel String
+
+    isActive  Boolean  @default(true)
+    joinedAt  DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    //relations
+    payments       Payment[]
+    feeAssignments MemberFeeAssignment[]
+    refreshTokens  RefreshToken[]
+
+    @@index([studentNo])
+    @@index([email])
+    @@index([course])
+    @@index([section])
+    @@index([yearLevel])
+    @@index([course, yearLevel])
+    @@index([isActive])
+}
+
+model Fee {
+    feeId       Int       @id @default(autoincrement())
+    title       String
+    description String?
+    amount      Decimal   @db.Money
+    type        FeeType
+    dueDate     DateTime?
+    isActive    Boolean   @default(true)
+
+    createdBy Int
+    creator   User     @relation("FeeCreator", fields: [createdBy], references: [userId])
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    assignments MemberFeeAssignment[]
+    payments    Payment[]
+
+    @@index([type, isActive])
+    @@index([dueDate])
+    @@index([createdBy])
+}
+
+enum FeeType {
+    MANDATORY
+    OPTIONAL
+}
+
+model MemberFeeAssignment {
+    assignmentId Int @id @default(autoincrement())
+
+    memberId Int
+    member   Member @relation(fields: [memberId], references: [memberId], onDelete: Cascade)
+
+    feeId Int
+    fee   Fee @relation(fields: [feeId], references: [feeId], onDelete: Cascade)
+
+    assignedAt DateTime @default(now())
+    isPaid     Boolean  @default(false)
+
+    @@unique([memberId])
+    @@index([memberId, isPaid])
+    @@index([feeId, isPaid])
+}
+
+model Payment {
+    paymentId Int @id @default(autoincrement())
+
+    memberId Int
+    member   Member @relation(fields: [memberId], references: [memberId])
+
+    feeId Int
+    fee   Fee @relation(fields: [feeId], references: [feeId])
+
+    //payment details
+    amountPaid     Decimal  @db.Money
+    proofImageUrl  String
+    gcashRefNumber String?
+    paymentDate    DateTime
+
+    status      PaymentStatus @default(PENDING)
+    submittedAt DateTime      @default(now())
+
+    reviewedBy Int?
+    reviewer   User?     @relation("PaymentReviewer", fields: [reviewedBy], references: [userId])
+    reviewedAt DateTime?
+
+    rejectionReason   String?
+    verificationNotes String?
+
+    @@index([memberId, status])
+    @@index([feeId, status])
+    @@index([status, submittedAt])
+    @@index([reviewedBy])
+}
+
+enum PaymentStatus {
+    PENDING
+    APPROVED
+    REJECTED
+}
+
+model RefreshToken {
+    tokenId Int    @id @default(autoincrement())
+    token   String @unique
+
+    userId Int?
+    user   User? @relation(fields: [userId], references: [userId])
+
+    memberId Int?
+    member   Member? @relation(fields: [memberId], references: [memberId])
+
+    expiresAt DateTime
+    revoked   Boolean  @default(false)
+    createdAt DateTime @default(now())
+
+    @@index([userId])
+    @@index([memberId])
+    @@index([revoked, expiresAt])
+}
+
+model SystemSettings {
+    settingsId  Int      @id @default(autoincrement())
+    gcashNumber Int
+    gcashName   String
+    orgName     String   @default("Computer Explorer Society")
+    orgEmail    String?
+    updatedAt   DateTime @updatedAt
+    updatedBy   Int?
+}
